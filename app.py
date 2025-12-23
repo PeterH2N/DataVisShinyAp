@@ -1,8 +1,9 @@
 
 import plotly.express as px
+import plotly.graph_objects as go
 import requests
 import pandas as pd
-from shiny import App, ui, reactive
+from shiny import App, ui, reactive, render
 from shinywidgets import output_widget, render_plotly
 from estate_data import average_price_by_town_by_year
 
@@ -42,12 +43,7 @@ def make_fig(year, residential_type):
     ).update_traces(hovertemplate="<b>%{customdata[0]}</b><br>Price: %{customdata[1]}<extra></extra>")
 
 # Create bubble plot
-
-
-def make_bubble():
-    import plotly.express as px
-    import plotly.graph_objects as go
-
+def make_bubble() -> go.Figure:
     # Filter data for the animation
     df_anim = df.query("`Residential Type` == 'All' and `Sale Year` >= 2005").copy()
 
@@ -134,7 +130,7 @@ def make_bubble():
 
     # Explicit animation controls using the same clean year strings
     fig.update_layout(
-        height=600,
+        #height=600,
         legend_title_text="Town",
         updatemenus=[
             dict(
@@ -179,11 +175,6 @@ def make_bubble():
             )
         ],
     )
-
-    # Debug: confirm names are clean
-    print("Frame count:", len(fig.frames))
-    print("First 5 frame names (repr):", [repr(f.name) for f in fig.frames[:5]])
-
     return fig
 
 
@@ -191,27 +182,29 @@ def make_bubble():
 
 # Shiny UI using shinywidgets
 app_ui = ui.page_fluid(
-    ui.h2("Connecticut Municipalities Map"),
-    output_widget("connecticut_map"),
-    ui.row(
-        ui.input_slider(
-            "year_slider",
-            "Choose a year",
-            min = 2001,
-            max = 2021,
-            value = 2011,
-            step = 1,
+    ui.card(
+        ui.card_header("Connecticut Municipalities Map"),
+        output_widget("connecticut_map"),
+        ui.row(
+            ui.input_slider(
+        "year_slider",
+        "Choose a year",
+        min = 2001,
+        max = 2021,
+        value = 2011,
+        step = 1,
         ),
         ui.input_select(
-            "residential_type",
-            "Residential Type",
-            choices = list(df["Residential Type"].unique()),
-            selected="All"
+        "residential_type",
+        "Residential Type",
+        choices = list(df["Residential Type"].unique()),
+        selected="All"
+        )
         )
     ),
-    ui.div(
-        ui.h4("Bubble Plot"),
-        output_widget("connecticut_bubble")
+    ui.card(
+        ui.card_header("Bubble Plot"),
+        ui.output_ui("connecticut_bubble")
     )
 )
 
@@ -229,9 +222,9 @@ def server(input, output, session):
         return fig_reactive()
     
     @output
-    @render_plotly
+    @render.ui
     def connecticut_bubble():
-        return bubble_fig()
+        return ui.HTML(make_bubble().to_html())
 
 
 

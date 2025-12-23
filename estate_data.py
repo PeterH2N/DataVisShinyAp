@@ -33,6 +33,13 @@ df = pd.read_csv(local_file, dtype={
 df["Sale Year"] = df["Date Recorded"].dt.year
 df = df.query("`Residential Type`.notna()")
 
+def change_in_price_by_town_by_year():
+    filtered = df.query("Town.notna()")
+    average_by_year = (filtered.groupby(["Town", "Sale Year"], as_index=False)["Sale Amount"].mean()).copy()
+    average_by_year["Percentage Change"] = average_by_year.groupby("Town")["Sale Amount"].pct_change() * 100
+    return average_by_year.query("`Town`.notna() and `Percentage Change`.notna()").copy()
+
+
 
 def average_price_by_town_by_year():
     filtered = df.query("Town.notna()")
