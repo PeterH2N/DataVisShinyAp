@@ -1,23 +1,33 @@
 import pandas as pd
 from census import Census
+import os
 c = Census("a54a198ac29e952c264e29856c0ae19bbc3b44aa")
 
+df_cd = {}
 
-frames = []
-for yr in range(2009, 2022):
-    #url = f"https://api.census.gov/data/{yr}/acs/acs5"
-    data = c.acs5.get(('NAME','B19013_001E','B01003_001E'),
-                      {'for':'county subdivision:*','in':'state:09'},
-                      year=yr)
-    df = pd.DataFrame(data)
-    df['Year'] = yr
-    frames.append(df)
-df_cd = pd.concat(frames, ignore_index=True)
+def get_census_data():
+    path = "res/census_data.csv"
+    if os.path.exists(path):
+        df_cd = pd.read_csv(path)
+    else:
+        frames = []
+        for yr in range(2009, 2022):
+            #url = f"https://api.census.gov/data/{yr}/acs/acs5"
+            data = c.acs5.get(('NAME','B19013_001E','B01003_001E'),
+                              {'for':'county subdivision:*','in':'state:09'},
+                              year=yr)
+            df = pd.DataFrame(data)
+            df['Year'] = yr
+            frames.append(df)
+        df_cd = pd.concat(frames, ignore_index=True)
+        df_cd["Town"] = df_cd["NAME"].str.replace(r"\s+town.*$", "", regex=True)
+        df_cd["Median Household Income"] = df_cd["B19013_001E"]
+        df_cd["Population"] = df_cd["B01003_001E"]
+        
+        df_cd.to_csv("res/census_data.csv", index=False)
 
+get_census_data()
 
-df_cd["Town"] = df_cd["NAME"].str.replace(r"\s+town.*$", "", regex=True)
-df_cd["Median Household Income"] = df_cd["B19013_001E"]
-df_cd["Population"] = df_cd["B01003_001E"]
 
 local_file = "res/estate_data.csv"
 

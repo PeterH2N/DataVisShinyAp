@@ -19,10 +19,10 @@ df = average_price_by_town_by_year()
 
 
 # Create Plotly choropleth map
-def make_fig(year, residential_type): 
+def make_fig(year, residential_type) -> go.Figure: 
 
     filtered_df = df.query(f"`Sale Year` == {year} and `Residential Type` == '{residential_type}'")
-    #filtered_df["clipped_price"] = df["Sale Amount"].clip(lower=df["Sale Amount"].quantile(.1), upper=df["Sale Amount"].quantile(.95))
+    filtered_df["clipped_price"] = df["Sale Amount"].clip(lower=df["Sale Amount"].quantile(.1), upper=df["Sale Amount"].quantile(.95))
 
     return px.choropleth_mapbox(
     filtered_df,
@@ -177,35 +177,61 @@ def make_bubble() -> go.Figure:
     )
     return fig
 
+# Create line plot
+def make_line(residential_type: str) -> go.Figure:
+    filtered_df = (df.query(f"`Residential Type` == '{residential_type}' and `Sale Year` >= 2006")).copy()
+    year_df = filtered_df.groupby("Sale Year", as_index=False)["Sale Amount"].mean()
 
+
+    fig = px.line(
+        year_df,
+        y="Sale Amount",
+        x="Sale Year"
+    )
+
+    return fig
 
 
 # Shiny UI using shinywidgets
 app_ui = ui.page_fluid(
-    ui.card(
-        ui.card_header("Connecticut Municipalities Map"),
-        output_widget("connecticut_map"),
-        ui.row(
-            ui.input_slider(
-        "year_slider",
-        "Choose a year",
-        min = 2001,
-        max = 2021,
-        value = 2011,
-        step = 1,
+    ui.row(
+        ui.column(
+            6,
+            ui.card(
+                ui.card_header("Connecticut Municipalities Map"),
+                output_widget("connecticut_map"),
+                ui.row(
+                    ui.input_slider(
+                        "year_slider",
+                        "Choose a year",
+                        min = 2001,
+                        max = 2021,
+                        value = 2011,
+                        step = 1,
+                    ),
+                    ui.input_select(
+                        "residential_type",
+                        "Residential Type",
+                        choices = list(df["Residential Type"].unique()),
+                        selected="All"
+                    )
+                )
+            ),
+            ui.card(
+                ui.card_header("Bubble Plot"),
+                ui.output_ui("connecticut_bubble")
+            ),
         ),
-        ui.input_select(
-        "residential_type",
-        "Residential Type",
-        choices = list(df["Residential Type"].unique()),
-        selected="All"
-        )
+        ui.column(
+            6,
+            ui.card(
+                ui.card_header("Line Plot"),
+                output_widget("connecticut_line")
+            )
         )
     ),
-    ui.card(
-        ui.card_header("Bubble Plot"),
-        ui.output_ui("connecticut_bubble")
-    )
+    
+    
 )
 
 # Shiny server using render_plotly
@@ -216,6 +242,10 @@ def server(input, output, session):
     def bubble_fig():        
         return make_bubble()
 
+    @reactive.Calc
+    def line_fig():
+        return make_line("All")
+
     @output
     @render_plotly
     def connecticut_map():
@@ -225,6 +255,11 @@ def server(input, output, session):
     @render.ui
     def connecticut_bubble():
         return ui.HTML(make_bubble().to_html())
+
+    @output
+    @render_plotly
+    def connecticut_line():
+        return line_fig()
 
 
 
