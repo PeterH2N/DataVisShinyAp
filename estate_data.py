@@ -1,14 +1,13 @@
 import pandas as pd
 from census import Census
 import os
+from pathlib import Path
 c = Census("a54a198ac29e952c264e29856c0ae19bbc3b44aa")
-
-df_cd = {}
 
 def get_census_data():
     path = "res/census_data.csv"
     if os.path.exists(path):
-        df_cd = pd.read_csv(path)
+        return pd.read_csv(path)
     else:
         frames = []
         for yr in range(2009, 2022):
@@ -23,10 +22,8 @@ def get_census_data():
         df_cd["Town"] = df_cd["NAME"].str.replace(r"\s+town.*$", "", regex=True)
         df_cd["Median Household Income"] = df_cd["B19013_001E"]
         df_cd["Population"] = df_cd["B01003_001E"]
-        
         df_cd.to_csv("res/census_data.csv", index=False)
-
-get_census_data()
+        return df_cd
 
 
 local_file = "res/estate_data.csv"
@@ -42,6 +39,8 @@ df = pd.read_csv(local_file, dtype={
 
 df["Sale Year"] = df["Date Recorded"].dt.year
 df = df.query("`Residential Type`.notna()")
+df = df.query("`Non Use Code`.isnull()")
+df = df.query("`Sale Amount` >= 20000 and `Assessed Value` >= 20000").copy()
 
 def change_in_price_by_town_by_year():
     filtered = df.query("Town.notna()")
@@ -55,15 +54,16 @@ def average_price_by_town_by_year():
     filtered = df.query("Town.notna()")
 
     
-    average_by_year = filtered.groupby(["Town", "Sale Year"], as_index=False)["Sale Amount"].mean()
+    average_by_year = filtered.groupby(["Town", "Sale Year"], as_index=False)[["Sale Amount", "Assessed Value"]].mean()
     average_by_year["Residential Type"] = "All"
     average_by_year_and_town = (
         filtered
-        .groupby(["Town", "Residential Type", "Sale Year"], as_index=False)["Sale Amount"]
+        .groupby(["Town", "Residential Type", "Sale Year"], as_index=False)[["Sale Amount", "Assessed Value"]]
         .mean()
         .sort_values(by=['Town', 'Sale Year'], ascending=[True, True]))
     
     # Add census data
+    df_cd = get_census_data()
     average_by_year = average_by_year.merge(
         df_cd[["Town", "Year", "Population", "Median Household Income"]],    
         left_on=["Town", "Sale Year"],    
@@ -71,3 +71,11 @@ def average_price_by_town_by_year():
         how="left"
     )
     return pd.concat([average_by_year_and_town, average_by_year], ignore_index=True)
+
+def pie_chart():
+    path = Path("res/residential_types.svg")
+    return path.read_text(encoding="utf-8")
+
+def assessed_vs_sale():
+    path = Path("res/assessed_vs_sale.svg")
+    return path.read_text(encoding="utf-8")
